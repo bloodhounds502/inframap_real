@@ -1,6 +1,6 @@
 this is inframap
 it is perfectly legal and real 
-# Inframap v2 - Network Mapping Tool with Red Theme and Black Buttons
+ 
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, scrolledtext
 import threading
@@ -13,13 +13,12 @@ import os
 import time
 from queue import Queue
 
-# ------------------------------ Predefined Port Profiles ------------------------------
 PORT_PROFILES = {
     "Quick Scan": [21, 22, 23, 25, 53, 80, 110, 139, 143, 443, 445, 3389],
     "Full Scan": list(range(1, 1025)),
     "Top 1000": list(range(1, 1001)),
     "Intense Scan": list(range(1, 1025)),
-    "Intense Scan plus UDP": list(range(1, 1025)),  # Simulated - no UDP in base version
+    "Intense Scan plus UDP": list(range(1, 1025)),
     "Intense Scan no TCP ports": [],
     "Intense Scan no ping": list(range(1, 1025)),
     "Ping Scan": [],
@@ -29,7 +28,6 @@ PORT_PROFILES = {
     "Show Comprehensive Scan": list(range(1, 65535))
 }
 
-# ------------------------------ Helper Functions ------------------------------
 def ping_host(host):
     param = "-n" if platform.system().lower() == "windows" else "-c"
     result = subprocess.call(["ping", param, "1", host], stdout=subprocess.DEVNULL)
@@ -61,7 +59,6 @@ def dns_lookup(target):
     except:
         return "DNS lookup failed."
 
-# ------------------------------ Scanner Class ------------------------------
 class Scanner:
     def __init__(self, target, ports, output_widget):
         self.target = target
@@ -88,7 +85,6 @@ class Scanner:
         except:
             pass
 
-# ------------------------------ GUI Class ------------------------------
 class InframapApp:
     def __init__(self, root):
         self.root = root
@@ -197,7 +193,6 @@ class InframapApp:
             if profile in PORT_PROFILES:
                 self.profile_choice.set(profile)
 
-# ------------------------------ Main App ------------------------------
 if __name__ == "__main__":
     root = tk.Tk()
     app = InframapApp(root)
