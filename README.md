@@ -191,6 +191,203 @@ class InframapApp:
             self.target_entry.insert(0, data.get("target", ""))
             profile = data.get("profile", "Quick Scan")
             if profile in PORT_PROFILES:
+================================for linux===================================
+import tkinter as tk
+from tkinter import ttk, filedialog, messagebox, scrolledtext
+import threading
+import socket
+import subprocess
+import platform
+import ipaddress
+import json
+import os
+import time
+from queue import Queue
+
+PORT_PROFILES = {
+    "Quick Scan": [21, 22, 23, 25, 53, 80, 110, 139, 143, 443, 445, 3389],
+    "Full Scan": list(range(1, 1025)),
+    "Top 1000": list(range(1, 1001)),
+    "Intense Scan": list(range(1, 1025)),
+    "Intense Scan plus UDP": list(range(1, 1025)),
+    "Intense Scan no TCP ports": [],
+    "Intense Scan no ping": list(range(1, 1025)),
+    "Ping Scan": [],
+    "Quick Scan Plus": [21, 22, 23, 25, 53, 80, 110, 139, 143, 443, 445, 3389, 8080, 8443],
+    "Quick Traceroute": [],
+    "Regular Scan": list(range(1, 1025)),
+    "Show Comprehensive Scan": list(range(1, 65535))
+}
+
+def ping_host(host):
+    param = "-n" if platform.system().lower() == "windows" else "-c"
+    result = subprocess.call(["ping", param, "1", host], stdout=subprocess.DEVNULL)
+    return result == 0
+
+def get_banner(ip, port):
+    try:
+        s = socket.socket()
+        s.settimeout(1)
+        s.connect((ip, port))
+        banner = s.recv(1024)
+        s.close()
+        return banner.decode(errors="ignore").strip()
+    except:
+        return ""
+
+def traceroute(target):
+    cmd = ["tracert", target] if platform.system().lower() == "windows" else ["traceroute", target]
+    try:
+        output = subprocess.check_output(cmd, stderr=subprocess.DEVNULL).decode()
+        return output
+    except Exception as e:
+        return f"[Error] {e}"
+
+def dns_lookup(target):
+    try:
+        return socket.gethostbyname(target)
+    except:
+        return "DNS lookup failed."
+
+class Scanner:
+    def __init__(self, target, ports, output_widget):
+        self.target = target
+        self.ports = ports
+        self.output = output_widget
+        self.queue = Queue()
+
+    def run(self):
+        self.output.insert(tk.END, f"\n[+] Starting scan on {self.target}\n")
+        for port in self.ports:
+            thread = threading.Thread(target=self.scan_port, args=(port,))
+            thread.start()
+            thread.join(0.01)
+
+    def scan_port(self, port):
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(0.5)
+            result = sock.connect_ex((self.target, port))
+            if result == 0:
+                banner = get_banner(self.target, port)
+                message = f"[+] Port {port} is open. Banner: {banner}\n"
+                self.output.insert(tk.END, message)
+        except:
+            pass
+
+class InframapApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Inframap v2 - Linux Edition")
+        self.root.configure(bg="red")
+        self.root.geometry("1000x700")
+
+        style = ttk.Style()
+        style.configure("TNotebook", background="red")
+        style.configure("TNotebook.Tab", background="darkred", foreground="white")
+        style.map("TNotebook.Tab", background=[("selected", "#cc0000")])
+
+        self.notebook = ttk.Notebook(self.root)
+        self.notebook.pack(expand=1, fill='both')
+
+        self.scan_tab = tk.Frame(self.notebook, bg="red")
+        self.tools_tab = tk.Frame(self.notebook, bg="red")
+        self.profile_tab = tk.Frame(self.notebook, bg="red")
+
+        self.notebook.add(self.scan_tab, text="Scan")
+        self.notebook.add(self.tools_tab, text="Tools")
+        self.notebook.add(self.profile_tab, text="Profiles")
+
+        self.build_scan_tab()
+        self.build_tools_tab()
+        self.build_profiles_tab()
+
+    def build_scan_tab(self):
+        tk.Label(self.scan_tab, text="Target IP or Host:", bg="red", fg="white").pack(pady=5)
+        self.target_entry = tk.Entry(self.scan_tab, width=50)
+        self.target_entry.pack()
+
+        tk.Label(self.scan_tab, text="Scan Profile:", bg="red", fg="white").pack(pady=5)
+        self.profile_choice = ttk.Combobox(self.scan_tab, values=list(PORT_PROFILES.keys()))
+        self.profile_choice.current(0)
+        self.profile_choice.pack()
+
+        self.output_box = scrolledtext.ScrolledText(self.scan_tab, width=100, height=25, bg="#330000", fg="white")
+        self.output_box.pack(pady=10)
+
+        tk.Button(self.scan_tab, text="Start Scan", command=self.start_scan, bg="black", fg="white").pack()
+
+    def start_scan(self):
+        target = self.target_entry.get()
+        profile = self.profile_choice.get()
+        ports = PORT_PROFILES.get(profile, [])
+        if not target:
+            messagebox.showerror("Error", "Target required.")
+            return
+        scanner = Scanner(target, ports, self.output_box)
+        threading.Thread(target=scanner.run).start()
+
+    def build_tools_tab(self):
+        tk.Label(self.tools_tab, text="Target for Tools:", bg="red", fg="white").pack(pady=5)
+        self.tool_target_entry = tk.Entry(self.tools_tab, width=50)
+        self.tool_target_entry.pack()
+
+        tk.Button(self.tools_tab, text="Traceroute", command=self.run_traceroute, bg="black", fg="white").pack(pady=5)
+        tk.Button(self.tools_tab, text="DNS Lookup", command=self.run_dns, bg="black", fg="white").pack(pady=5)
+
+        self.tools_output = scrolledtext.ScrolledText(self.tools_tab, width=100, height=25, bg="#330000", fg="white")
+        self.tools_output.pack(pady=10)
+
+    def run_traceroute(self):
+        target = self.tool_target_entry.get()
+        self.tools_output.insert(tk.END, f"\nRunning traceroute to {target}...\n")
+        result = traceroute(target)
+        self.tools_output.insert(tk.END, result + "\n")
+
+    def run_dns(self):
+        target = self.tool_target_entry.get()
+        result = dns_lookup(target)
+        self.tools_output.insert(tk.END, f"DNS Result: {result}\n")
+
+    def build_profiles_tab(self):
+        tk.Label(self.profile_tab, text="Profile Name:", bg="red", fg="white").pack(pady=5)
+        self.profile_name_entry = tk.Entry(self.profile_tab, width=30)
+        self.profile_name_entry.pack()
+
+        tk.Button(self.profile_tab, text="Save Profile", command=self.save_profile, bg="black", fg="white").pack(pady=5)
+        tk.Button(self.profile_tab, text="Load Profile", command=self.load_profile, bg="black", fg="white").pack(pady=5)
+
+    def save_profile(self):
+        profile = {
+            "target": self.target_entry.get(),
+            "profile": self.profile_choice.get()
+        }
+        name = self.profile_name_entry.get()
+        if not name:
+            messagebox.showerror("Error", "Profile name required")
+            return
+        os.makedirs("profiles", exist_ok=True)
+        with open(f"profiles/{name}.json", "w") as f:
+            json.dump(profile, f)
+        messagebox.showinfo("Saved", f"Profile '{name}' saved.")
+
+    def load_profile(self):
+        path = filedialog.askopenfilename(initialdir="profiles", filetypes=[("JSON Files", "*.json")])
+        if not path:
+            return
+        with open(path, "r") as f:
+            data = json.load(f)
+            self.target_entry.delete(0, tk.END)
+            self.target_entry.insert(0, data.get("target", ""))
+            profile = data.get("profile", "Quick Scan")
+            if profile in PORT_PROFILES:
+                self.profile_choice.set(profile)
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = InframapApp(root)
+    root.mainloop()
+
                 self.profile_choice.set(profile)
 
 if __name__ == "__main__":
